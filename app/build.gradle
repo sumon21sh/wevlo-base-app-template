@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// READ ME BEFORE BUILDING
+//
+// This is NOT an app you ship on its own. It's the "base template" that
+// Wevlo's on-device builder (ApkTemplateBuilder, in the main app module)
+// patches — swapping the placeholder applicationId / label / version
+// below, plus the assets/www/* files — into a brand-new, independently
+// installable APK for every project a Wevlo user builds.
+//
+// Build this ONCE (Build > Build Bundle(s) / APK(s) > Build APK(s), or
+// `./gradlew assembleRelease`), then copy the resulting APK to:
+//   ../app/src/main/assets/template/base.apk
+// inside the main Wevlo project. See this folder's README.md for the
+// full walkthrough.
+//
+// The applicationId / label / versionName below are deliberately long,
+// obviously-fake placeholder strings — NOT real values. Wevlo's
+// AxmlStringPatcher finds these EXACT strings inside the compiled
+// AndroidManifest.xml and overwrites them in place with each generated
+// app's real values. They must stay long enough that every real value
+// Wevlo will ever substitute is shorter (see AxmlStringPatcher.java's
+// class comment for exactly why). Don't shorten them, and if you ever
+// change one, update the matching constant in ApkTemplateBuilder.java
+// too, or the two will drift out of sync and every build will fail with
+// "Placeholder not found in base template's manifest".
+// ─────────────────────────────────────────────────────────────────────────
+
+android {
+    namespace 'com.wevlo.tpl.base'
+    compileSdk 34
+
+    defaultConfig {
+        // Overwritten on-device by ApkTemplateBuilder for every generated app.
+        applicationId "com.wevlo.tpl.baseplaceholderpkgxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        // Over
