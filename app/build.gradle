@@ -39,4 +39,37 @@ android {
         minSdk 23
         targetSdk 34
         versionCode 1
-        // Over
+        // Overwritten on-device by ApkTemplateBuilder for every generated app.
+        versionName "0.0.0-wevlo-template-placeholder-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+
+    buildTypes {
+        release {
+            // Keep unminified/unobfuscated — R8 could rename or strip
+            // MainActivity, and ApkTemplateBuilder's manifest patch relies
+            // on the compiled manifest referencing the exact class name
+            // this module declares below.
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    // The base.apk we hand to ApkTemplateBuilder is re-signed from scratch
+    // on-device anyway (see ApkReSigner), so whatever signs this initial
+    // build — debug key, release key, doesn't matter — is discarded.
+    // Leaving Android Studio's default debug signing in place is fine.
+}
+
+dependencies {
+    // Deliberately dependency-free — every extra library here is extra
+    // weight baked into *every* app Wevlo users generate.
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
