@@ -1,0 +1,86 @@
+name: Build clean base.apk
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Confirm no stray dependencies are declared
+        run: |
+          echo "── app/build.gradle dependencies block (should be empty) ──"
+          awk '/dependencies *\{/{flag=1} flag{print} /^\}/{if(flag){exit}}' app/build.gradle
+
+      - name: Clean build (assembleRelease)
+        run: ./gradlew clean assembleRelease --no-build-cache --no-configuration-cache
+
+      - name: Locate output APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
+          echo "Found: $APK_PATH"
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Verify no foreign classes/strings leaked into the dex
+        run: |
+          set -e
+          APK="${{ steps.find_apk.outputs.apk_path }}"
+          WORKDIR=$(mktemp -d)
+          unzip -q "$APK" -d "$WORKDIR"
+          echo "── Files inside the APK ──"
+          find "$WORKDIR" -maxdepth 2 -type f
+
+          echo "── Scanning classes*.dex for any type outside allowed prefixes ──"
+          BAD=0
+          for DEX in "$WORKDIR"/classes*.dex; do
+            [ -f "$DEX" ] || continue
+            echo "Checking $DEX"
+            FOUND=$(strings "$DEX" | grep -E '^L[A-Za-z0-9/_$]+;$' \
+              | grep -vE '^L(android|java|javax|dalvik|org/json)/' \
+              | grep -v '^Lcom/wevlo/tpl/base/' || true)
+            if [ -n "$FOUND" ]; then
+              echo "!! Unexpected types found in $DEX:"
+              echo "$FOUND"
+              BAD=1
+            fi
+          done
+
+          echo "── Scanning manifest string pool for anything outside our own package ──"
+          FOUND2=$(strings -e l "$WORKDIR/AndroidManifest.xml" \
+            | grep -iE '\.(initializer|provider|worker|analytics|logger)\b' || true)
+          if [ -n "$FOUND2" ]; then
+            echo "!! Suspicious manifest strings found:"
+            echo "$FOUND2"
+            BAD=1
+          fi
+
+          if [ "$BAD" -ne 0 ]; then
+            echo "FAILED: this build is contaminated — do NOT use this APK. Re-run on a fresh runner / open an issue."
+            exit 1
+          fi
+          echo "OK: no foreign classes or components found. This build looks clean."
+
+      - name: Upload base.apk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-apk
+          path: ${{ steps.find_apk.outputs.apk_path }}
+          if-no-files-found: error
